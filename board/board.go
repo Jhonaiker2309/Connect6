@@ -261,6 +261,33 @@ func FindWinningMove(b Board, player rune) *Move {
 	return nil
 }
 
+func FindPairWinningMove(b Board, player rune) *Move {
+    // Generar todos los movimientos posibles para el primer paso
+    firstMoves := GenerateSmartMoves(b)
+    
+    // Verificar cada par de movimientos consecutivos
+    for _, firstMove := range firstMoves {
+        // Aplicar primer movimiento
+        testBoard := CloneBoard(b)
+        ApplyMove(&testBoard, firstMove, player)
+        
+        // Generar movimientos para el segundo paso
+        secondMoves := GenerateSmartMoves(testBoard)
+        
+        for _, secondMove := range secondMoves {
+            // Aplicar segundo movimiento
+            finalBoard := CloneBoard(testBoard)
+            ApplyMove(&finalBoard, secondMove, player)
+            
+            // Verificar si se completa la victoria
+            if CheckWin(finalBoard, player) {
+                return &firstMove // Devolver el primer movimiento del par ganador
+            }
+        }
+    }
+    return nil
+}
+
 // GetPriorityPositions obtiene ubicaciones clave
 // Añade el área central 5x5 si el tablero está vacío, etc.
 func GetPriorityPositions(b Board, radius int) []Position {
