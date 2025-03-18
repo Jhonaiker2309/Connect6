@@ -1,5 +1,9 @@
 package board
 
+import (
+	"strings"
+)
+
 const (
 	BoardSize = 19
 	WinLength = 6
@@ -52,7 +56,10 @@ func CheckWin(b Board, player rune) bool {
 				count := 1
 				for step := 1; step < WinLength; step++ {
 					nr, nc := r+dir.dr*step, c+dir.dc*step
-					if nr < 0 || nr >= BoardSize || nc < 0 || nc >= BoardSize || b[nr][nc] != player {
+					if nr < 0 || nr >= BoardSize || nc < 0 || nc >= BoardSize {
+						break
+					}
+					if b[nr][nc] != player {
 						break
 					}
 					count++
@@ -76,13 +83,13 @@ func IsValidMove(b Board, p1, p2 Position) bool {
 	if p1 == p2 {
 		return false
 	}
-	
-	enRango := func(p Position) bool {
+
+	inRange := func(p Position) bool {
 		return p.Row >= 0 && p.Row < BoardSize && p.Col >= 0 && p.Col < BoardSize
 	}
-	
-	return enRango(p1) && enRango(p2) &&
-		b[p1.Row][p1.Col] == '\x00' && 
+
+	return inRange(p1) && inRange(p2) &&
+		b[p1.Row][p1.Col] == '\x00' &&
 		b[p2.Row][p2.Col] == '\x00'
 }
 
@@ -131,6 +138,29 @@ func GetCurrentPlayer(b Board) rune {
 	return 'W'
 }
 
+// EvaluateBoard evalúa ventaja global de un jugador
+// Parámetros:
+// - b: Tablero actual
+// - player: Jugador a evaluar
+// Retorna: Puntaje balanceado (positivo = ventaja para el jugador)
+func EvaluateBoard(b Board, player rune) float64 {
+	score := 0
+	opponent := SwitchPlayer(player)
+
+	for r := 0; r < BoardSize; r++ {
+		for c := 0; c < BoardSize; c++ {
+			if b[r][c] == player {
+				score += EvaluatePosition(b, r, c, player)
+			} else if b[r][c] == opponent {
+				// restamos la posición del oponente
+				score -= EvaluatePosition(b, r, c, opponent)
+			}
+		}
+	}
+	// ejemplo: dividir por 100.0 para no inflar demasiado
+	return float64(score) / 100.0
+}
+
 // EvaluatePosition calcula valor estratégico de una posición
 // Parámetros:
 // - b: Tablero actual
@@ -147,6 +177,7 @@ func EvaluatePosition(b Board, r, c int, player rune) int {
 	for _, dir := range directions {
 		streak := 1
 		openEnds := 0
+		// contamos fichas continuas hacia adelante
 		for step := 1; step < WinLength; step++ {
 			nr, nc := r+dir.dr*step, c+dir.dc*step
 			if nr < 0 || nr >= BoardSize || nc < 0 || nc >= BoardSize {
@@ -158,44 +189,23 @@ func EvaluatePosition(b Board, r, c int, player rune) int {
 				openEnds++
 				break
 			} else {
+				// bloqueado por oponente
 				break
 			}
 		}
+		// puntuación simple
 		score += streak * streak * (openEnds + 1)
 	}
 	return score
 }
 
-// EvaluateBoard evalúa ventaja global de un jugador
-// Parámetros:
-// - b: Tablero actual
-// - player: Jugador a evaluar
-// Retorna: Puntaje balanceado (positivo = ventaja para el jugador)
-func EvaluateBoard(b Board, player rune) float64 {
-	score := 0
-	opponent := SwitchPlayer(player)
-
-	for r := 0; r < BoardSize; r++ {
-		for c := 0; c < BoardSize; c++ {
-			if b[r][c] == player {
-				score += EvaluatePosition(b, r, c, player)
-			} else if b[r][c] == opponent {
-				score -= EvaluatePosition(b, r, c, opponent)
-			}
-		}
-	}
-	return float64(score) / 100.0
-}
-
-// GenerateSmartMoves genera movimientos estratégicos
-// Parámetros:
-// - b: Tablero actual
+// baseSmartMoves genera movimientos "básicos" sin filtrar demasiado
 // Retorna: Lista de hasta 100 pares de posiciones prioritarias
-func GenerateSmartMoves(b Board) []Move {
+func baseSmartMoves(b Board) []Move {
 	positions := GetPriorityPositions(b, 2)
 	var moves []Move
-
 	maxPairs := 100
+
 	for i := 0; i < len(positions); i++ {
 		for j := i + 1; j < len(positions); j++ {
 			moves = append(moves, Move{positions[i], positions[j]})
@@ -207,17 +217,58 @@ func GenerateSmartMoves(b Board) []Move {
 	return moves
 }
 
-// GetPriorityPositions obtiene ubicaciones clave
+// GenerateSmartMoves genera movimientos estratégicos
+// En esta versión, añadimos la idea de priorizar ciertas jugadas.
+// Ejemplo: si hubiera una jugada ganadora para B o W (aunque sin saber quién juega),
+// se agregan primero. Luego se añaden las jugadas base.
+func GenerateSmartMoves(b Board) []Move {
+	var moves []Move
+
+	// 1) Jugada ganadora para negras
+	if winB := FindWinningMove(b, 'B'); winB != nil {
+		moves = append(moves, *winB)
+	}
+	// 2) Jugada ganadora para blancas
+	if winW := FindWinningMove(b, 'W'); winW != nil {
+		moves = append(moves, *winW)
+	}
+
+	// 3) baseSmartMoves
+	base := baseSmartMoves(b)
+	moves = append(moves, base...)
+
+	// Opcional: recortar
+	if len(moves) > 150 {
+		moves = moves[:150]
+	}
+	return moves
+}
+
+// FindWinningMove busca victoria inmediata
 // Parámetros:
 // - b: Tablero actual
-// - radius: Radio de búsqueda alrededor de piedras existentes
-// Retorna: Slice de posiciones importantes
+// - player: Jugador a verificar
+// Retorna: Movimiento ganador si existe, nil en caso contrario
+func FindWinningMove(b Board, player rune) *Move {
+	moves := baseSmartMoves(b)
+	for _, move := range moves {
+		testBoard := CloneBoard(b)
+		ApplyMove(&testBoard, move, player)
+		if CheckWin(testBoard, player) {
+			return &move
+		}
+	}
+	return nil
+}
+
+// GetPriorityPositions obtiene ubicaciones clave
+// Añade el área central 5x5 si el tablero está vacío, etc.
 func GetPriorityPositions(b Board, radius int) []Position {
 	positions := make(map[Position]bool)
 	center := BoardSize / 2
 
-	// Añadir área central 5x5 si el tablero está vacío
 	if IsBoardEmpty(b) {
+		// área central 5x5
 		for dr := -2; dr <= 2; dr++ {
 			for dc := -2; dc <= 2; dc++ {
 				nr, nc := center+dr, center+dc
@@ -246,25 +297,6 @@ func GetPriorityPositions(b Board, radius int) []Position {
 	}
 	return mapToSlice(positions)
 }
-
-// FindWinningMove busca victoria inmediata
-// Parámetros:
-// - b: Tablero actual
-// - player: Jugador a verificar
-// Retorna: Movimiento ganador si existe, nil en caso contrario
-func FindWinningMove(b Board, player rune) *Move {
-	moves := GenerateSmartMoves(b)
-	for _, move := range moves {
-		testBoard := CloneBoard(b)
-		ApplyMove(&testBoard, move, player)
-		if CheckWin(testBoard, player) {
-			return &move
-		}
-	}
-	return nil
-}
-
-// Helper Functions
 
 // IsBoardEmpty verifica si el tablero está vacío
 func IsBoardEmpty(b Board) bool {
@@ -297,4 +329,25 @@ func GetWinner(board Board) rune {
 		return 'W'
 	}
 	return ' '
+}
+
+// BoardHash genera un identificador (string) para el estado del tablero
+// para usar en tablas de transposición o almacenamiento.
+func BoardHash(b Board) string {
+	var sb strings.Builder
+	sb.Grow(BoardSize * BoardSize)
+
+	for r := 0; r < BoardSize; r++ {
+		for c := 0; c < BoardSize; c++ {
+			// Usamos el rune directamente, p.ej. '\x00', 'B', 'W'.
+			// '\x00' no es representable textualmente, así que puedes mapearlo a un caracter.
+			cell := b[r][c]
+			if cell == '\x00' {
+				sb.WriteRune('.') // Por ejemplo, '.' para vacío
+			} else {
+				sb.WriteRune(cell) // 'B' o 'W'
+			}
+		}
+	}
+	return sb.String()
 }
