@@ -35,11 +35,10 @@ func NewGame(fichas string, tiempo int) *Game {
 
 	return &Game{
 		mcts: &mcts.MCTS{
-			MaxDepth:         1000,
-			Iterations:       100000,
-			Exploration:      1.414, // sqrt(2)
-			UseTransposition: true,
-			TimeLimit:        tiempo,
+			MaxDepth:    30,
+			Iterations:  100000,
+			Exploration: 1.414, // sqrt(2)
+			TimeLimit:   tiempo,
 		},
 		currentPlayer: initialPlayer,
 		tpj:           tiempo,
