@@ -68,7 +68,7 @@ func GetPlayerMove(b board.Board) board.Move {
 			// Validar que la posición esté vacía y dentro del tablero.
 			if board.IsValidMove(b, p, board.Position{}) {
 				// Se retorna el movimiento con el centinela en la segunda posición.
-				return board.Move{p, board.Position{-1, -1}}
+				return board.Move{p, board.Position{Row: -1, Col: -1}}
 			}
 			fmt.Println("Movimiento inválido. Intenta nuevamente.")
 		}
