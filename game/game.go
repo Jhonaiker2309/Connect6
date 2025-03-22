@@ -16,6 +16,7 @@ type Game struct {
 	mcts          *mcts.MCTS
 	currentPlayer rune
 	tpj           int
+	humanPiece    rune
 }
 
 // NewGame crea e inicializa una nueva instancia del juego
@@ -24,14 +25,14 @@ type Game struct {
 func NewGame(fichas string, tiempo int) *Game {
 	rand.Seed(time.Now().UnixNano())
 
-	// Decide quién inicia, según '-fichas='
-	var initialPlayer rune
-	if fichas == "blancas" {
-		initialPlayer = 'W'
-	} else {
-		// default: negras
-		initialPlayer = 'B'
-	}
+    // Negro siempre inicia.
+    initialPlayer := 'B'
+    var humanPiece rune
+    if fichas == "negras" {
+        humanPiece = 'B'
+    } else {
+        humanPiece = 'W'
+    }
 
 	return &Game{
 		mcts: &mcts.MCTS{
@@ -42,6 +43,7 @@ func NewGame(fichas string, tiempo int) *Game {
 		},
 		currentPlayer: initialPlayer,
 		tpj:           tiempo,
+		humanPiece:    humanPiece,
 	}
 }
 
@@ -59,11 +61,11 @@ func (g *Game) Run() {
 			break
 		}
 
-		if g.currentPlayer == 'B' {
-			g.botTurn()
-		} else {
-			g.playerTurn()
-		}
+        if g.currentPlayer == g.humanPiece {
+            g.playerTurn()
+        } else {
+            g.botTurn()
+        }
 
 		g.currentPlayer = board.SwitchPlayer(g.currentPlayer)
 	}
@@ -74,10 +76,19 @@ func (g *Game) Run() {
 // Pasos:
 //  1. Ejecuta la búsqueda MCTS para encontrar el mejor movimiento
 //  2. Aplica el movimiento al tablero
+// botTurn maneja el turno de la IA
+// El Bot juega con la pieza opuesta a la del jugador humano.
 func (g *Game) botTurn() {
-	fmt.Println("Turno del Bot (Negras)...")
-	bestMove := g.mcts.Search(g.board, g.currentPlayer) // Obtiene mejor movimiento de la IA
-	board.ApplyMove(&g.board, bestMove, 'B')
+    fmt.Println("Turno del Bot...")
+    // El Bot siempre juega con la pieza opuesta
+    var botPiece rune
+    if g.humanPiece == 'B' {
+        botPiece = 'W'
+    } else {
+        botPiece = 'B'
+    }
+    bestMove := g.mcts.Search(g.board, g.currentPlayer)
+    board.ApplyMove(&g.board, bestMove, botPiece)
 }
 
 // playerTurn maneja el turno del jugador humano
@@ -85,9 +96,9 @@ func (g *Game) botTurn() {
 //  1. Solicita entrada al jugador
 //  2. Valida y aplica el movimiento
 func (g *Game) playerTurn() {
-	fmt.Println("Tu turno (Blancas)")
-	move := ui.GetPlayerMove(g.board) // Obtiene movimiento del jugador
-	board.ApplyMove(&g.board, move, 'W')
+    fmt.Println("Tu turno...")
+    move := ui.GetPlayerMove(g.board)
+    board.ApplyMove(&g.board, move, g.humanPiece)
 }
 
 // showFinalResult muestra el resultado final del juego
