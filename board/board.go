@@ -138,27 +138,169 @@ func GetCurrentPlayer(b Board) rune {
 	return 'W'
 }
 
-// EvaluateBoard evalúa ventaja global de un jugador
-// Parámetros:
-// - b: Tablero actual
-// - player: Jugador a evaluar
-// Retorna: Puntaje balanceado (positivo = ventaja para el jugador)
+// EvaluateBoard evalúa la ventaja global de 'player' en el tablero 'b'.
+// Retorna un valor positivo si es mejor para 'player', negativo si es mejor para el rival.
 func EvaluateBoard(b Board, player rune) float64 {
-	score := 0
 	opponent := SwitchPlayer(player)
+	playerScore := 0
+	oppScore := 0
+
+	// Recorremos el tablero en busca de cadenas de 'B' o 'W'.
+	// Para cada casilla con una ficha, examinamos la longitud de la cadena en
+	// 4 direcciones. Obtenemos la longitud y si está bloqueada a izquierda/derecha.
+	directions := []struct{ dr, dc int }{
+		{0, 1},  // Horizontal
+		{1, 0},  // Vertical
+		{1, 1},  // Diagonal \
+		{1, -1}, // Diagonal /
+	}
 
 	for r := 0; r < BoardSize; r++ {
 		for c := 0; c < BoardSize; c++ {
-			if b[r][c] == player {
-				score += EvaluatePosition(b, r, c, player)
-			} else if b[r][c] == opponent {
-				// restamos la posición del oponente
-				score -= EvaluatePosition(b, r, c, opponent)
+			cell := b[r][c]
+			if cell == '\x00' {
+				continue
+			}
+			// Vemos para cada dirección
+			for _, d := range directions {
+				length, blockedA, blockedB := chainInfo(b, r, c, d.dr, d.dc, cell)
+
+				if cell == player {
+					playerScore += WeightedChainScore(length, blockedA, blockedB)
+				} else if cell == opponent {
+					oppScore += WeightedChainScore(length, blockedA, blockedB)
+				}
 			}
 		}
 	}
-	// ejemplo: dividir por 100.0 para no inflar demasiado
-	return float64(score) / 100.0
+
+	// Un valor final. Podríamos normalizarlo, pero por simplicidad
+	// devolvemos la diferencia. Cuanto mayor => más favorable a 'player'.
+	return float64(playerScore - oppScore)
+}
+
+// WeightedChainScore asigna un valor según la longitud de la cadena y si
+// está bloqueada a uno o ambos extremos.
+func WeightedChainScore(length int, blockedA, blockedB bool) int {
+	// Puntos base si la cadena es >= 6 => victoria instantánea
+	if length >= 6 {
+		return 999999
+	}
+
+	openEnds := 0
+	if !blockedA {
+		openEnds++
+	}
+	if !blockedB {
+		openEnds++
+	}
+
+	// Ejemplo de escalado
+	// 5 en línea:
+	if length == 5 {
+		// con 2 extremos abiertos => un movimiento (2 piedras) => gana
+		if openEnds == 2 {
+			return 100000
+		} else if openEnds == 1 {
+			return 50000
+		}
+		return 20000
+	}
+
+	// 4 en línea:
+	// Si openEnds=2 => se puede poner 2 fichas y hacer 6
+	// p.ej. 4 + 2 = 6 => su peligrosidad sube mucho
+	if length == 4 {
+		if openEnds == 2 {
+			return 30000 // sube este valor
+		} else if openEnds == 1 {
+			return 15000
+		}
+		return 5000
+	}
+
+	// 3 en línea:
+	if length == 3 {
+		if openEnds == 2 {
+			// 3 + 2 = 5 => no gana de inmediato, pero se queda a 1
+			// Súbelo un poco
+			return 7000
+		} else if openEnds == 1 {
+			return 3000
+		}
+		return 1000
+	}
+
+	// 2 en línea:
+	if length == 2 {
+		if openEnds == 2 {
+			return 1500
+		}
+		return 500
+	}
+
+	// 1 sola
+	if length == 1 {
+		return 50
+	}
+
+	return 0
+}
+
+// chainInfo retorna la longitud de la cadena que inicia en (r,c) en la dirección (dr, dc),
+// y si está bloqueada en los extremos.
+func chainInfo(b Board, r, c, dr, dc int, player rune) (length int, blockedA, blockedB bool) {
+	// Empezamos con length=1 (la propia casilla (r,c))
+	length = 1
+
+	// Avanzamos "hacia adelante" en la dirección (dr,dc)
+	step := 1
+	for {
+		nr := r + dr*step
+		nc := c + dc*step
+		if nr < 0 || nr >= BoardSize || nc < 0 || nc >= BoardSize {
+			// salimos del tablero => se considera "bloqueado"
+			blockedB = true
+			break
+		}
+		if b[nr][nc] == player {
+			length++
+			step++
+			continue
+		}
+		if b[nr][nc] == '\x00' {
+			// hueco => no bloqueado, paramos la cadena
+			blockedB = false
+		} else {
+			// hay una ficha rival => bloqueado
+			blockedB = true
+		}
+		break
+	}
+
+	// Avanzamos "hacia atrás" en la dirección opuesta (-dr, -dc)
+	step = 1
+	for {
+		nr := r - dr*step
+		nc := c - dc*step
+		if nr < 0 || nr >= BoardSize || nc < 0 || nc >= BoardSize {
+			blockedA = true
+			break
+		}
+		if b[nr][nc] == player {
+			length++
+			step++
+			continue
+		}
+		if b[nr][nc] == '\x00' {
+			blockedA = false
+		} else {
+			blockedA = true
+		}
+		break
+	}
+
+	return length, blockedA, blockedB
 }
 
 // EvaluatePosition calcula valor estratégico de una posición
@@ -262,30 +404,30 @@ func FindWinningMove(b Board, player rune) *Move {
 }
 
 func FindPairWinningMove(b Board, player rune) *Move {
-    // Generar todos los movimientos posibles para el primer paso
-    firstMoves := GenerateSmartMoves(b)
-    
-    // Verificar cada par de movimientos consecutivos
-    for _, firstMove := range firstMoves {
-        // Aplicar primer movimiento
-        testBoard := CloneBoard(b)
-        ApplyMove(&testBoard, firstMove, player)
-        
-        // Generar movimientos para el segundo paso
-        secondMoves := GenerateSmartMoves(testBoard)
-        
-        for _, secondMove := range secondMoves {
-            // Aplicar segundo movimiento
-            finalBoard := CloneBoard(testBoard)
-            ApplyMove(&finalBoard, secondMove, player)
-            
-            // Verificar si se completa la victoria
-            if CheckWin(finalBoard, player) {
-                return &firstMove // Devolver el primer movimiento del par ganador
-            }
-        }
-    }
-    return nil
+	// Generar todos los movimientos posibles para el primer paso
+	firstMoves := GenerateSmartMoves(b)
+
+	// Verificar cada par de movimientos consecutivos
+	for _, firstMove := range firstMoves {
+		// Aplicar primer movimiento
+		testBoard := CloneBoard(b)
+		ApplyMove(&testBoard, firstMove, player)
+
+		// Generar movimientos para el segundo paso
+		secondMoves := GenerateSmartMoves(testBoard)
+
+		for _, secondMove := range secondMoves {
+			// Aplicar segundo movimiento
+			finalBoard := CloneBoard(testBoard)
+			ApplyMove(&finalBoard, secondMove, player)
+
+			// Verificar si se completa la victoria
+			if CheckWin(finalBoard, player) {
+				return &firstMove // Devolver el primer movimiento del par ganador
+			}
+		}
+	}
+	return nil
 }
 
 // GetPriorityPositions obtiene ubicaciones clave

@@ -193,17 +193,50 @@ func (m *MCTS) rollout(node *Node) float64 {
 // 3) EvaluateBoard
 // Con pequeña aleatoriedad
 func (m *MCTS) policyMove(state board.Board, moves []board.Move, currentPlayer rune) board.Move {
-	// 1) Intentar movida ganadora
+	// 1) Movida ganadora tuya
 	if winMove := board.FindPairWinningMove(state, currentPlayer); winMove != nil {
 		return *winMove
 	}
-	// 2) Bloquear
+	// 2) Bloqueo movida ganadora rival
 	opponent := board.SwitchPlayer(currentPlayer)
 	if blockMove := board.FindPairWinningMove(state, opponent); blockMove != nil {
 		return *blockMove
 	}
 
-	// 3) Heurística
+	// 3) Bloqueo “4 en línea con 2 huecos” del rival
+	//    => Escanear jugadas que disminuyan la evaluación del rival
+	var bestBlockMove *board.Move
+	bestBlockEval := math.Inf(1) // mientras más bajo, mejor para nosotros
+
+	for _, mv := range moves {
+		tmp := board.CloneBoard(state)
+		// Jugada nuestra
+		board.ApplyMove(&tmp, mv, currentPlayer)
+		// Evaluación del rival tras esto
+		oppVal := board.EvaluateBoard(tmp, opponent)
+		if oppVal < bestBlockEval {
+			bestBlockEval = oppVal
+			copyMove := mv
+			bestBlockMove = &copyMove
+		}
+	}
+
+	// Revisamos si bestBlockEval es muy inferior => es un buen “bloqueo”
+	// Podemos poner un umbral, p.ej. si EvaluateBoard del rival normal era 20000,
+	// y con nuestro bestBlockEval bajamos a 5000, es un gran bloqueo.
+	// Sino, seguimos con la heurística normal.
+
+	if bestBlockMove != nil {
+		// Checa la evaluación del rival en la posición actual
+		currentRivalVal := board.EvaluateBoard(state, opponent)
+		// si la diferencia es grande, bloquea
+		if currentRivalVal-bestBlockEval > 10000 {
+			// => hay un gran cambio => haremos ese blocking
+			return *bestBlockMove
+		}
+	}
+
+	// 4) Heurística “positiva” => elegimos la que me da mejor EvaluateBoard
 	bestScore := -math.MaxFloat64
 	bestMove := moves[rand.Intn(len(moves))]
 
@@ -217,11 +250,7 @@ func (m *MCTS) policyMove(state board.Board, moves []board.Move, currentPlayer r
 		}
 	}
 
-	// 80% la mejor, 20% aleatoria
-	if rand.Float64() < 0.8 {
-		return bestMove
-	}
-	return moves[rand.Intn(len(moves))]
+	return bestMove
 }
 
 // backpropagate recorre hacia arriba y ajusta visits/wins
