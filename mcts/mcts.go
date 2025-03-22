@@ -188,8 +188,8 @@ func generateLegalMoves(b board.Board, player rune) []board.Move {
 			for j := 0; j < board.BoardSize; j++ {
 				if b[i][j] == '\x00' {
 					var m board.Move
-					m[0] = board.Position{i, j}
-					m[1] = board.Position{-1, -1} // Centinela para indicar jugada de 1 ficha
+					m[0] = board.Position{Row: i, Col: j}
+					m[1] = board.Position{Row: -1, Col: -1} // Centinela para indicar jugada de 1 ficha
 					moves = append(moves, m)
 				}
 			}
