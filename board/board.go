@@ -335,11 +335,17 @@ func GenerateSmartMoves(b Board) []Move {
 
 func FindWinningMove(b Board, player rune) *Move {
 	moves := baseSmartMoves(b)
-	for _, move := range moves {
+	// Define un umbral mínimo; movimientos que produzcan un estado con evaluación inferior se descartan.
+	threshold := 2000.0
+	for i := 0; i < len(moves); i++ {
 		testBoard := CloneBoard(b)
-		ApplyMove(&testBoard, move, player)
+		ApplyMove(&testBoard, moves[i], player)
+		// Si la evaluación es baja, omite este movimiento.
+		if EvaluateBoard(testBoard, player) < threshold {
+			continue
+		}
 		if CheckWin(testBoard, player) {
-			return &move
+			return &moves[i]
 		}
 	}
 	return nil
