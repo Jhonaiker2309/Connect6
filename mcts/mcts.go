@@ -48,6 +48,21 @@ func (m *MCTS) Search(rootBoard board.Board, currentPlayer rune) board.Move {
 	root := NewNode(rootBoard, board.Move{}, nil, currentPlayer)
 	root.untriedMoves = generateLegalMoves(root.board, currentPlayer)
 
+    // 1) Revisar si currentPlayer puede ganar de inmediato.
+    winningPositions := board.FindCriticalBlocks(root.board, currentPlayer)
+    if len(winningPositions) > 0 {
+        var move board.Move
+        if len(winningPositions) >= 2 {
+            // Si hay dos o más posiciones críticas, usar las dos mejores.
+            move = board.Move{winningPositions[0], winningPositions[1]}
+        } else {
+            // Si solo hay una, buscamos el mejor complemento entre las posiciones vacías.
+            bestComplement := board.FindBestComplementForCritical(root.board, currentPlayer, winningPositions[0])
+            move = board.Move{winningPositions[0], bestComplement}
+        }
+        return move
+    }
+
 	// Detectar amenazas críticas de forma eficiente.
 	// Se buscan posiciones críticas para bloquear al oponente.
 	opponent := board.SwitchPlayer(currentPlayer)
