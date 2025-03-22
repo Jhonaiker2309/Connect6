@@ -18,7 +18,3 @@ build-linux:
 clean:
 	@echo "Limpiando..."
 	@rm -rf bin/
-
-run-linux: build-linux
-	@echo "Ejecutando en Linux (requiere Wine o Linux)"
-	@./bin/$(APP_NAME)
