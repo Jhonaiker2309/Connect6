@@ -63,12 +63,11 @@ func GetPlayerMove(b board.Board) board.Move {
 				fmt.Scanln(&discard)
 				continue
 			}
-			p := board.Position{Row: row, Col: col}
-			// Validar que la posición esté vacía y dentro del tablero.
-			if board.IsValidMove(b, p, board.Position{}) {
-				// Se retorna el movimiento con el centinela en la segunda posición.
-				return board.Move{p, board.Position{Row: -1, Col: -1}}
-			}
+            if row >= 0 && row < board.BoardSize && col >= 0 && col < board.BoardSize && b[row][col] == '\x00' {
+                p := board.Position{Row: row, Col: col}
+                // Retornamos el movimiento con el centinela (-1,-1) en la segunda posición.
+                return board.Move{p, board.Position{Row: -1, Col: -1}}
+            }
 			fmt.Println("Movimiento inválido. Intenta nuevamente.")
 		}
 	} else {
