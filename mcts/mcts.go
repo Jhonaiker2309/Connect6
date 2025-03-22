@@ -159,23 +159,18 @@ func selectBestChild(node *Node, exploration float64) *Node {
 
 // --- Funciones auxiliares para implementar las reglas de Connect6 ---
 
-// countStones cuenta las fichas de un jugador en el tablero.
-func countStones(b board.Board, player rune) int {
-	count := 0
-	for i := 0; i < board.BoardSize; i++ {
-		for j := 0; j < board.BoardSize; j++ {
-			if b[i][j] == player {
-				count++
-			}
-		}
-	}
-	return count
-}
 
 // isFirstMove determina si es la primera jugada del jugador.
 // Si el jugador aún no tiene fichas en el tablero, se considera su primer turno.
 func isFirstMove(b board.Board, player rune) bool {
-	return countStones(b, player) == 0
+	for i := 0; i < board.BoardSize; i++ {
+		for j := 0; j < board.BoardSize; j++ {
+			if b[i][j] != '\x00' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // generateLegalMoves genera los movimientos legales para el jugador en el estado b.
