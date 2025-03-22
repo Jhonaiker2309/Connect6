@@ -1,0 +1,5 @@
+Este código fue testeado en las versiones "go1.18.1 linux/amd64" y "go1.24.1 linux/amd64" de go
+
+-Compilación: "make"
+-Limpieza: "make clean"
+-Ejecutar: Con el código ya compilado correr "exec ./bin/connect6 -fichas=<blancas|negras> -tpj=<numero_de_segundos>
