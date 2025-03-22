@@ -76,7 +76,7 @@ func (g *Game) Run() {
 //  2. Aplica el movimiento al tablero
 func (g *Game) botTurn() {
 	fmt.Println("Turno del Bot (Negras)...")
-	bestMove := g.mcts.Search(g.board) // Obtiene mejor movimiento de la IA
+	bestMove := g.mcts.Search(g.board, g.currentPlayer) // Obtiene mejor movimiento de la IA
 	board.ApplyMove(&g.board, bestMove, 'B')
 }
 
