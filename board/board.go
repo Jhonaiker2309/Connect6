@@ -1,5 +1,4 @@
 // --- Modificaciones en board.go ---
-
 package board
 
 import (
@@ -20,7 +19,7 @@ type Move [2]Position
 type Board [BoardSize][BoardSize]rune
 
 // ApplyMove coloca fichas en el tablero.
-// Si move[1] es (-1,-1), se coloca solo una ficha; de lo contrario, ambas.
+// Si move[1] es (-1,-1), se coloca solo una ficha; de lo contrario, se colocan ambas.
 func ApplyMove(b *Board, move Move, player rune) {
 	if move[1].Row == -1 && move[1].Col == -1 {
 		b[move[0].Row][move[0].Col] = player
@@ -224,8 +223,8 @@ func chainInfo(b Board, r, c, dr, dc int, player rune) (length int, blockedA, bl
 }
 
 // FindCriticalBlocks recorre el tablero y devuelve todas las posiciones vacías
-// que, al colocar la ficha del oponente, generan cadenas de al menos 4 fichas consecutivas
-// en alguna dirección. Se consideran críticas porque el oponente podría ganar con dos jugadas.
+// que, al colocar la ficha del oponente, generan una cadena "crítica" (p.ej. al menos 4 fichas consecutivas)
+// en alguna dirección, considerando todas las orientaciones (horizontal, vertical y diagonales).
 func FindCriticalBlocks(b Board, opponent rune) []Position {
 	var crit []Position
 	directions := []struct{ dr, dc int }{
@@ -237,8 +236,8 @@ func FindCriticalBlocks(b Board, opponent rune) []Position {
 				continue
 			}
 			for _, d := range directions {
-				count := 1 // contando la ficha que se colocaría
-				// Hacia adelante.
+				count := 1 // contando la ficha hipotética que se colocaría
+				// Contar hacia adelante
 				fr, fc := r, c
 				for {
 					fr += d.dr
@@ -252,7 +251,7 @@ func FindCriticalBlocks(b Board, opponent rune) []Position {
 						break
 					}
 				}
-				// Hacia atrás.
+				// Contar hacia atrás
 				br, bc := r, c
 				for {
 					br -= d.dr
@@ -266,6 +265,7 @@ func FindCriticalBlocks(b Board, opponent rune) []Position {
 						break
 					}
 				}
+				// Si la cuenta es mayor o igual a 4, se considera crítica.
 				if count >= 4 {
 					crit = append(crit, Position{r, c})
 					break
@@ -276,6 +276,37 @@ func FindCriticalBlocks(b Board, opponent rune) []Position {
 	return crit
 }
 
+// FindBestComplementForCritical busca, dado el tablero b, la posición crítica 'crit' y el jugador actual,
+// la segunda posición vacía legal que, al ser combinada con 'crit', genere el mejor estado para bloquear al oponente.
+// Se evalúa cada candidato simulando el movimiento (dos fichas) y se escoge el que maximiza EvaluateBoard(b, currentPlayer).
+func FindBestComplementForCritical(b Board, currentPlayer rune, crit Position) Position {
+	bestEval := -1e9 // Valor muy bajo
+	var bestPos Position
+	// Iterar sobre todas las posiciones vacías
+	for r := 0; r < BoardSize; r++ {
+		for c := 0; c < BoardSize; c++ {
+			cand := Position{r, c}
+			if cand == crit {
+				continue
+			}
+			// Verificar que la posición esté vacía y que la jugada (crit, cand) sea válida.
+			if b[r][c] != '\x00' || !IsValidMove(b, crit, cand) {
+				continue
+			}
+			simBoard := CloneBoard(b)
+			var move Move = Move{crit, cand}
+			ApplyMove(&simBoard, move, currentPlayer)
+			eval := EvaluateBoard(simBoard, currentPlayer)
+			if eval > bestEval {
+				bestEval = eval
+				bestPos = cand
+			}
+		}
+	}
+	return bestPos
+}
+
+// El resto de las funciones (baseSmartMoves, GenerateSmartMoves, FindWinningMove, FindPairWinningMove, GetPriorityPositions, IsBoardEmpty, mapToSlice, GetWinner, BoardHash) se mantienen sin cambios.
 func baseSmartMoves(b Board) []Move {
 	positions := GetPriorityPositions(b, 2)
 	var moves []Move
