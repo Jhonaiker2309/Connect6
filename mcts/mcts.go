@@ -48,13 +48,24 @@ func (m *MCTS) Search(rootBoard board.Board, currentPlayer rune) board.Move {
 	root := NewNode(rootBoard, board.Move{}, nil, currentPlayer)
 	root.untriedMoves = generateLegalMoves(root.board, currentPlayer)
 
-	// Uso de la función de bloqueo crítico para detectar amenazas inmediatas del oponente.
+	// Detectar bloqueos críticos de manera eficiente.
+	// Se busca bloquear al oponente, que es SwitchPlayer(currentPlayer).
 	opponent := board.SwitchPlayer(currentPlayer)
-	if blockMove := board.FindCriticalBlock(root.board, opponent); blockMove != nil {
-		return *blockMove
+	criticalPositions := board.FindCriticalBlocks(root.board, opponent)
+	if len(criticalPositions) > 0 {
+		var move board.Move
+		if len(criticalPositions) >= 2 {
+			// Si hay dos o más posiciones críticas, usar las dos primeras.
+			move = board.Move{criticalPositions[0], criticalPositions[1]}
+		} else {
+			// Si sólo hay una, se toma esa y se complementa con cualquier posición vacía legal.
+			second := findAnyLegalPosition(root.board)
+			move = board.Move{criticalPositions[0], second}
+		}
+		return move
 	}
 
-	// Realiza las simulaciones de MCTS.
+	// Realiza la búsqueda MCTS normalmente.
 	for i := 0; i < m.Iterations; i++ {
 		if time.Now().After(deadline) {
 			break
@@ -65,6 +76,19 @@ func (m *MCTS) Search(rootBoard board.Board, currentPlayer rune) board.Move {
 	}
 	bestChild := selectBestChild(root, 0)
 	return bestChild.move
+}
+
+// findAnyLegalPosition es una función auxiliar (puede definirse en mcts_new.go o board.go)
+func findAnyLegalPosition(b board.Board) board.Position {
+	for r := 0; r < board.BoardSize; r++ {
+		for c := 0; c < board.BoardSize; c++ {
+			if b[r][c] == '\x00' {
+				return board.Position{Row: r, Col: c}
+			}
+		}
+	}
+	// Fallback: se asume que siempre hay una celda vacía.
+	return board.Position{Row: 0, Col: 0}
 }
 
 // treePolicy recorre el árbol MCTS hasta llegar a un nodo no completamente expandido o terminal.
@@ -159,7 +183,6 @@ func selectBestChild(node *Node, exploration float64) *Node {
 }
 
 // --- Funciones auxiliares para implementar las reglas de Connect6 ---
-
 
 // isFirstMove determina si es la primera jugada del jugador.
 // Si el jugador aún no tiene fichas en el tablero, se considera su primer turno.

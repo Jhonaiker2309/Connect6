@@ -1,8 +1,5 @@
-// En board.go se agrega la función FindCriticalBlock.
-// Esta función recorre cada celda vacía y simula colocar la ficha del oponente.
-// Primero, si al colocar la ficha se gana inmediatamente, se retorna esa jugada.
-// Si no, se simula también el segundo movimiento (ya que el oponente juega dos fichas)
-// y si con esa secuencia se alcanza una victoria, se retorna ese bloqueo.
+// --- Modificaciones en board.go ---
+
 package board
 
 import (
@@ -226,42 +223,58 @@ func chainInfo(b Board, r, c, dr, dc int, player rune) (length int, blockedA, bl
 	return length, blockedA, blockedB
 }
 
-// FindCriticalBlock busca de forma eficiente una jugada crítica para bloquear al oponente.
-// Para cada celda vacía, simula colocar la ficha del oponente y verifica:
-//   - Si al colocarla se gana inmediatamente (6 en línea), retorna esa jugada.
-//   - De lo contrario, simula un segundo movimiento (usando GenerateSmartMoves)
-//     y si alguno lleva a la victoria, retorna ese bloqueo.
-//
-// Esta función recorre el tablero una sola vez y es mucho más rápida que buscar pares.
-func FindCriticalBlock(b Board, opponent rune) *Move {
+// FindCriticalBlocks recorre el tablero y devuelve todas las posiciones vacías
+// que, al colocar la ficha del oponente, generan cadenas de al menos 4 fichas consecutivas
+// en alguna dirección. Se consideran críticas porque el oponente podría ganar con dos jugadas.
+func FindCriticalBlocks(b Board, opponent rune) []Position {
+	var crit []Position
+	directions := []struct{ dr, dc int }{
+		{0, 1}, {1, 0}, {1, 1}, {1, -1},
+	}
 	for r := 0; r < BoardSize; r++ {
 		for c := 0; c < BoardSize; c++ {
 			if b[r][c] != '\x00' {
 				continue
 			}
-			testBoard := CloneBoard(b)
-			testBoard[r][c] = opponent
-			if CheckWin(testBoard, opponent) {
-				move := Move{Position{r, c}, Position{-1, -1}}
-				return &move
-			}
-			secondMoves := GenerateSmartMoves(testBoard)
-			for _, move2 := range secondMoves {
-				finalBoard := CloneBoard(testBoard)
-				ApplyMove(&finalBoard, move2, opponent)
-				if CheckWin(finalBoard, opponent) {
-					move := Move{Position{r, c}, Position{-1, -1}}
-					return &move
+			for _, d := range directions {
+				count := 1 // contando la ficha que se colocaría
+				// Hacia adelante.
+				fr, fc := r, c
+				for {
+					fr += d.dr
+					fc += d.dc
+					if fr < 0 || fr >= BoardSize || fc < 0 || fc >= BoardSize {
+						break
+					}
+					if b[fr][fc] == opponent {
+						count++
+					} else {
+						break
+					}
+				}
+				// Hacia atrás.
+				br, bc := r, c
+				for {
+					br -= d.dr
+					bc -= d.dc
+					if br < 0 || br >= BoardSize || bc < 0 || bc >= BoardSize {
+						break
+					}
+					if b[br][bc] == opponent {
+						count++
+					} else {
+						break
+					}
+				}
+				if count >= 4 {
+					crit = append(crit, Position{r, c})
+					break
 				}
 			}
 		}
 	}
-	return nil
+	return crit
 }
-
-// El resto de las funciones en board.go (baseSmartMoves, GenerateSmartMoves, FindWinningMove,
-// FindPairWinningMove, GetPriorityPositions, IsBoardEmpty, mapToSlice, GetWinner, BoardHash)
-// se mantienen o se modifican mínimamente según lo mostrado previamente.
 
 func baseSmartMoves(b Board) []Move {
 	positions := GetPriorityPositions(b, 2)
