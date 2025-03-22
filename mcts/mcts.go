@@ -48,20 +48,20 @@ func (m *MCTS) Search(rootBoard board.Board, currentPlayer rune) board.Move {
 	root := NewNode(rootBoard, board.Move{}, nil, currentPlayer)
 	root.untriedMoves = generateLegalMoves(root.board, currentPlayer)
 
-    // 1) Revisar si currentPlayer puede ganar de inmediato.
-    winningPositions := board.FindCriticalBlocks(root.board, currentPlayer)
-    if len(winningPositions) > 0 {
-        var move board.Move
-        if len(winningPositions) >= 2 {
-            // Si hay dos o más posiciones críticas, usar las dos mejores.
-            move = board.Move{winningPositions[0], winningPositions[1]}
-        } else {
-            // Si solo hay una, buscamos el mejor complemento entre las posiciones vacías.
-            bestComplement := board.FindBestComplementForCritical(root.board, currentPlayer, winningPositions[0])
-            move = board.Move{winningPositions[0], bestComplement}
-        }
-        return move
-    }
+	// 1) Revisar si currentPlayer puede ganar de inmediato.
+	winningPositions := board.FindCriticalBlocks(root.board, currentPlayer)
+	if len(winningPositions) > 0 {
+		var move board.Move
+		if len(winningPositions) >= 2 {
+			// Si hay dos o más posiciones críticas, usar las dos mejores.
+			move = board.Move{winningPositions[0], winningPositions[1]}
+		} else {
+			// Si solo hay una, buscamos el mejor complemento entre las posiciones vacías.
+			bestComplement := board.FindBestComplementForCritical(root.board, currentPlayer, winningPositions[0])
+			move = board.Move{winningPositions[0], bestComplement}
+		}
+		return move
+	}
 
 	// Detectar amenazas críticas de forma eficiente.
 	// Se buscan posiciones críticas para bloquear al oponente.
@@ -91,19 +91,6 @@ func (m *MCTS) Search(rootBoard board.Board, currentPlayer rune) board.Move {
 	}
 	bestChild := selectBestChild(root, 0)
 	return bestChild.move
-}
-
-// findAnyLegalPosition es una función auxiliar (puede definirse en mcts_new.go o board.go)
-func findAnyLegalPosition(b board.Board) board.Position {
-	for r := 0; r < board.BoardSize; r++ {
-		for c := 0; c < board.BoardSize; c++ {
-			if b[r][c] == '\x00' {
-				return board.Position{Row: r, Col: c}
-			}
-		}
-	}
-	// Fallback: se asume que siempre hay una celda vacía.
-	return board.Position{Row: 0, Col: 0}
 }
 
 // treePolicy recorre el árbol MCTS hasta llegar a un nodo no completamente expandido o terminal.

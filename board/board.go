@@ -1,10 +1,6 @@
 // --- Modificaciones en board.go ---
 package board
 
-import (
-	"strings"
-)
-
 const (
 	BoardSize = 19
 	WinLength = 6
@@ -306,7 +302,6 @@ func FindBestComplementForCritical(b Board, currentPlayer rune, crit Position) P
 	return bestPos
 }
 
-// El resto de las funciones (baseSmartMoves, GenerateSmartMoves, FindWinningMove, FindPairWinningMove, GetPriorityPositions, IsBoardEmpty, mapToSlice, GetWinner, BoardHash) se mantienen sin cambios.
 func baseSmartMoves(b Board) []Move {
 	positions := GetPriorityPositions(b, 2)
 	var moves []Move
@@ -345,23 +340,6 @@ func FindWinningMove(b Board, player rune) *Move {
 		ApplyMove(&testBoard, move, player)
 		if CheckWin(testBoard, player) {
 			return &move
-		}
-	}
-	return nil
-}
-
-func FindPairWinningMove(b Board, player rune) *Move {
-	firstMoves := GenerateSmartMoves(b)
-	for _, firstMove := range firstMoves {
-		testBoard := CloneBoard(b)
-		ApplyMove(&testBoard, firstMove, player)
-		secondMoves := GenerateSmartMoves(testBoard)
-		for _, secondMove := range secondMoves {
-			finalBoard := CloneBoard(testBoard)
-			ApplyMove(&finalBoard, secondMove, player)
-			if CheckWin(finalBoard, player) {
-				return &firstMove
-			}
 		}
 	}
 	return nil
@@ -425,20 +403,4 @@ func GetWinner(board Board) rune {
 		return 'W'
 	}
 	return ' '
-}
-
-func BoardHash(b Board) string {
-	var sb strings.Builder
-	sb.Grow(BoardSize * BoardSize)
-	for r := 0; r < BoardSize; r++ {
-		for c := 0; c < BoardSize; c++ {
-			cell := b[r][c]
-			if cell == '\x00' {
-				sb.WriteRune('.')
-			} else {
-				sb.WriteRune(cell)
-			}
-		}
-	}
-	return sb.String()
 }
