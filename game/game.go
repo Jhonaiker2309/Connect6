@@ -12,11 +12,11 @@ import (
 // Game representa la instancia principal del juego Connect6
 // Contiene el estado del tablero, el motor de IA y el jugador actual
 type Game struct {
-	board         board.Board
-	mcts          *mcts.MCTS
-	currentPlayer rune
-	tpj           int
-	humanPiece    rune
+	board         board.Board // Estado actual del tablero
+	mcts          *mcts.MCTS  // Motor de búsqueda basado en MCTS
+	currentPlayer rune        // Jugador que tiene el turno en el estado actual
+	tpj           int         // Tiempo máximo en segundos para que la IA decida su jugada
+	humanPiece    rune        // Pieza asignada al jugador humano ('B' o 'W')
 }
 
 // NewGame crea e inicializa una nueva instancia del juego
@@ -25,21 +25,21 @@ type Game struct {
 func NewGame(fichas string, tiempo int) *Game {
 	rand.Seed(time.Now().UnixNano())
 
-    // Negro siempre inicia.
-    initialPlayer := 'B'
-    var humanPiece rune
-    if fichas == "negras" {
-        humanPiece = 'B'
-    } else {
-        humanPiece = 'W'
-    }
+	// Negro siempre inicia.
+	initialPlayer := 'B'
+	var humanPiece rune
+	if fichas == "negras" {
+		humanPiece = 'B'
+	} else {
+		humanPiece = 'W'
+	}
 
 	return &Game{
 		mcts: &mcts.MCTS{
-			MaxDepth:    30,
-			Iterations:  100000,
-			Exploration: 1.414, // sqrt(2)
-			TimeLimit:   tiempo,
+			MaxDepth:    30,     // Profundidad máxima de simulación en MCTS
+			Iterations:  100000, // Número máximo de simulaciones
+			Exploration: 1.414,  // Factor de exploración, típicamente sqrt(2)
+			TimeLimit:   tiempo, // Tiempo límite en segundos para la búsqueda de la IA
 		},
 		currentPlayer: initialPlayer,
 		tpj:           tiempo,
@@ -61,11 +61,11 @@ func (g *Game) Run() {
 			break
 		}
 
-        if g.currentPlayer == g.humanPiece {
-            g.playerTurn()
-        } else {
-            g.botTurn()
-        }
+		if g.currentPlayer == g.humanPiece {
+			g.playerTurn()
+		} else {
+			g.botTurn()
+		}
 
 		g.currentPlayer = board.SwitchPlayer(g.currentPlayer)
 	}
@@ -76,19 +76,20 @@ func (g *Game) Run() {
 // Pasos:
 //  1. Ejecuta la búsqueda MCTS para encontrar el mejor movimiento
 //  2. Aplica el movimiento al tablero
+//
 // botTurn maneja el turno de la IA
 // El Bot juega con la pieza opuesta a la del jugador humano.
 func (g *Game) botTurn() {
-    fmt.Println("Turno del Bot...")
-    // El Bot siempre juega con la pieza opuesta
-    var botPiece rune
-    if g.humanPiece == 'B' {
-        botPiece = 'W'
-    } else {
-        botPiece = 'B'
-    }
-    bestMove := g.mcts.Search(g.board, g.currentPlayer)
-    board.ApplyMove(&g.board, bestMove, botPiece)
+	fmt.Println("Turno del Bot...")
+	// El Bot siempre juega con la pieza opuesta
+	var botPiece rune
+	if g.humanPiece == 'B' {
+		botPiece = 'W'
+	} else {
+		botPiece = 'B'
+	}
+	bestMove := g.mcts.Search(g.board, g.currentPlayer)
+	board.ApplyMove(&g.board, bestMove, botPiece)
 }
 
 // playerTurn maneja el turno del jugador humano
@@ -96,9 +97,9 @@ func (g *Game) botTurn() {
 //  1. Solicita entrada al jugador
 //  2. Valida y aplica el movimiento
 func (g *Game) playerTurn() {
-    fmt.Println("Tu turno...")
-    move := ui.GetPlayerMove(g.board)
-    board.ApplyMove(&g.board, move, g.humanPiece)
+	fmt.Println("Tu turno...")
+	move := ui.GetPlayerMove(g.board)
+	board.ApplyMove(&g.board, move, g.humanPiece)
 }
 
 // showFinalResult muestra el resultado final del juego

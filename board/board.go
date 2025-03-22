@@ -1,17 +1,22 @@
-// --- Modificaciones en board.go ---
 package board
 
+// Constantes que definen el tamaño del tablero y la cantidad de fichas en línea necesarias para ganar.
 const (
 	BoardSize = 19
 	WinLength = 6
 )
 
+// Position representa una coordenada en el tablero, con fila y columna.
 type Position struct {
 	Row, Col int
 }
 
+// Move define un movimiento en el tablero, compuesto por dos posiciones. En la primera jugada se usa
+// la segunda posición con el valor (-1,-1) para indicar que solo se coloca una ficha.
 type Move [2]Position
 
+// Board representa el estado del tablero como una matriz de 19x19. Cada celda contiene un rune:
+// '\x00' indica celda vacía, 'B' representa fichas negras y 'W' fichas blancas.
 type Board [BoardSize][BoardSize]rune
 
 // ApplyMove coloca fichas en el tablero.
@@ -25,6 +30,8 @@ func ApplyMove(b *Board, move Move, player rune) {
 	}
 }
 
+// CheckWin recorre el tablero y verifica si el jugador indicado tiene al menos 6 fichas consecutivas
+// en alguna de las cuatro direcciones (horizontal, vertical o en las dos diagonales).
 func CheckWin(b Board, player rune) bool {
 	directions := []struct{ dr, dc int }{
 		{0, 1}, {1, 0}, {1, 1}, {1, -1},
@@ -55,6 +62,8 @@ func CheckWin(b Board, player rune) bool {
 	return false
 }
 
+// IsValidMove determina si dos posiciones (p1 y p2) constituyen un movimiento legal, es decir,
+// que sean distintas, estén dentro del tablero y ambas celdas estén vacías.
 func IsValidMove(b Board, p1, p2 Position) bool {
 	if p1 == p2 {
 		return false
@@ -67,6 +76,7 @@ func IsValidMove(b Board, p1, p2 Position) bool {
 		b[p2.Row][p2.Col] == '\x00'
 }
 
+// SwitchPlayer alterna la pieza del jugador. Si el jugador actual es 'B', retorna 'W' y viceversa.
 func SwitchPlayer(player rune) rune {
 	if player == 'B' {
 		return 'W'
@@ -74,6 +84,7 @@ func SwitchPlayer(player rune) rune {
 	return 'B'
 }
 
+// CloneBoard genera una copia exacta del tablero, lo que permite realizar simulaciones sin modificar el estado original.
 func CloneBoard(b Board) Board {
 	var newBoard Board
 	for i := range b {
@@ -82,6 +93,8 @@ func CloneBoard(b Board) Board {
 	return newBoard
 }
 
+// GetCurrentPlayer determina qué jugador debe mover basándose en la cantidad de fichas en el tablero.
+// Se asume que si hay igual número de fichas, le toca a las negras ('B'); de lo contrario, a las blancas ('W').
 func GetCurrentPlayer(b Board) rune {
 	var black, white int
 	for _, row := range b {
@@ -100,6 +113,9 @@ func GetCurrentPlayer(b Board) rune {
 	return 'W'
 }
 
+// EvaluateBoard calcula una puntuación que refleja qué tan favorable es el estado del tablero para el jugador.
+// Se suma la "fuerza" de las cadenas de fichas del jugador y se resta la del oponente, considerando también si
+// las cadenas están bloqueadas o tienen extremos abiertos.
 func EvaluateBoard(b Board, player rune) float64 {
 	opponent := SwitchPlayer(player)
 	playerScore := 0
@@ -126,6 +142,8 @@ func EvaluateBoard(b Board, player rune) float64 {
 	return float64(playerScore - oppScore)
 }
 
+// WeightedChainScore asigna un puntaje a una cadena de fichas en función de su longitud y de si sus extremos están bloqueados.
+// Los puntajes son escalados para reflejar la importancia de cadenas más largas.
 func WeightedChainScore(length int, blockedA, blockedB bool) int {
 	if length >= 6 {
 		return 999999
@@ -173,6 +191,8 @@ func WeightedChainScore(length int, blockedA, blockedB bool) int {
 	return 0
 }
 
+// chainInfo examina una cadena de fichas a partir de una posición dada (r,c) en la dirección (dr,dc)
+// y retorna la longitud de la cadena, además de indicar si los extremos de la misma están bloqueados.
 func chainInfo(b Board, r, c, dr, dc int, player rune) (length int, blockedA, blockedB bool) {
 	length = 1
 	step := 1
@@ -302,6 +322,9 @@ func FindBestComplementForCritical(b Board, currentPlayer rune, crit Position) P
 	return bestPos
 }
 
+// baseSmartMoves genera una lista de movimientos básicos tomando posiciones prioritarias del tablero.
+// Se utiliza la función GetPriorityPositions para obtener celdas de interés y luego se forman todos los pares posibles,
+// hasta un máximo de 100 movimientos. Este conjunto sirve para limitar el espacio de búsqueda a jugadas prometedoras.
 func baseSmartMoves(b Board) []Move {
 	positions := GetPriorityPositions(b, 2)
 	var moves []Move
@@ -317,6 +340,8 @@ func baseSmartMoves(b Board) []Move {
 	return moves
 }
 
+// GenerateSmartMoves combina jugadas ganadoras inmediatas (si se detectan) con movimientos básicos
+// generados por baseSmartMoves, y retorna un conjunto de movimientos potencialmente prometedores, limitado a 150.
 func GenerateSmartMoves(b Board) []Move {
 	var moves []Move
 	if winB := FindWinningMove(b, 'B'); winB != nil {
@@ -333,6 +358,9 @@ func GenerateSmartMoves(b Board) []Move {
 	return moves
 }
 
+// FindWinningMove examina los movimientos básicos generados por baseSmartMoves y retorna aquel que,
+// al aplicarlo, resulte en una victoria inmediata para el jugador. Se descartan movimientos cuyo estado
+// evaluado no supere un umbral establecido (en este caos, 2000 puntos), lo que ayuda a filtrar jugadas poco prometedoras.
 func FindWinningMove(b Board, player rune) *Move {
 	moves := baseSmartMoves(b)
 	// Define un umbral mínimo; movimientos que produzcan un estado con evaluación inferior se descartan.
@@ -351,6 +379,9 @@ func FindWinningMove(b Board, player rune) *Move {
 	return nil
 }
 
+// GetPriorityPositions retorna posiciones del tablero que se consideran de mayor interés para formar jugadas.
+// Si el tablero está vacío, se selecciona una región central (por ejemplo, un área 5x5). En otros casos, se recogen
+// las posiciones vacías cercanas a las fichas existentes.
 func GetPriorityPositions(b Board, radius int) []Position {
 	positions := make(map[Position]bool)
 	center := BoardSize / 2
@@ -382,6 +413,7 @@ func GetPriorityPositions(b Board, radius int) []Position {
 	return mapToSlice(positions)
 }
 
+// IsBoardEmpty determina si el tablero está completamente vacío.
 func IsBoardEmpty(b Board) bool {
 	for _, row := range b {
 		for _, cell := range row {
@@ -393,6 +425,7 @@ func IsBoardEmpty(b Board) bool {
 	return true
 }
 
+// mapToSlice convierte un mapa de posiciones en un slice para facilitar su manejo.
 func mapToSlice(m map[Position]bool) []Position {
 	result := make([]Position, 0, len(m))
 	for pos := range m {
@@ -401,6 +434,8 @@ func mapToSlice(m map[Position]bool) []Position {
 	return result
 }
 
+// GetWinner determina el ganador del juego basándose en el estado actual del tablero.
+// Retorna 'B' si ganan las negras, 'W' si ganan las blancas o ' ' si no hay ganador.
 func GetWinner(board Board) rune {
 	if CheckWin(board, 'B') {
 		return 'B'

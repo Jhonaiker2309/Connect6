@@ -41,8 +41,9 @@ func NewNode(b board.Board, move board.Move, parent *Node, player rune) *Node {
 	}
 }
 
-// Search inicia la búsqueda MCTS desde el estado actual (rootBoard).
-// currentPlayer es el jugador que debe mover en este estado.
+// Search inicia la búsqueda MCTS desde el estado actual (rootBoard) para el jugador que tiene el turno (currentPlayer).
+// Se establece un límite de tiempo y se exploran simulaciones hasta alcanzarlo o superar el número máximo de iteraciones.
+// Antes de iniciar las simulaciones, se revisan jugadas que permitan ganar inmediatamente o bloquear amenazas críticas.
 func (m *MCTS) Search(rootBoard board.Board, currentPlayer rune) board.Move {
 	deadline := time.Now().Add(time.Duration(m.TimeLimit) * time.Second)
 	root := NewNode(rootBoard, board.Move{}, nil, currentPlayer)
@@ -93,7 +94,8 @@ func (m *MCTS) Search(rootBoard board.Board, currentPlayer rune) board.Move {
 	return bestChild.move
 }
 
-// treePolicy recorre el árbol MCTS hasta llegar a un nodo no completamente expandido o terminal.
+// treePolicy recorre el árbol de búsqueda hasta alcanzar un nodo que no esté completamente expandido
+// o se encuentre en un estado terminal, de acuerdo con la función CheckWin.
 func treePolicy(node *Node, currentPlayer rune) *Node {
 	for !board.CheckWin(node.board, board.SwitchPlayer(currentPlayer)) &&
 		!board.CheckWin(node.board, currentPlayer) {
@@ -101,7 +103,7 @@ func treePolicy(node *Node, currentPlayer rune) *Node {
 			return expand(node, currentPlayer)
 		} else if len(node.children) > 0 {
 			node = selectBestChild(node, 1.414) // sqrt(2) típico
-			// Se asume que después del movimiento se cambia el jugador.
+			// Se actualiza el turno del jugador después de aplicar el movimiento.
 			currentPlayer = board.SwitchPlayer(node.player)
 		} else {
 			return node
@@ -110,7 +112,8 @@ func treePolicy(node *Node, currentPlayer rune) *Node {
 	return node
 }
 
-// expand selecciona y expande aleatoriamente un movimiento no explorado del nodo.
+// expand elige aleatoriamente un movimiento no explorado del nodo y crea un hijo aplicando dicho movimiento.
+// Se actualiza el estado clonando el tablero actual y aplicando el movimiento correspondiente.
 func expand(node *Node, currentPlayer rune) *Node {
 	idx := rand.Intn(len(node.untriedMoves))
 	move := node.untriedMoves[idx]
@@ -124,7 +127,8 @@ func expand(node *Node, currentPlayer rune) *Node {
 	return child
 }
 
-// defaultPolicy simula una partida aleatoria (rollout) a partir de un estado.
+// defaultPolicy simula una partida aleatoria (rollout) a partir de un estado dado, hasta una profundidad máxima.
+// Se evalúa el estado terminal o, de no alcanzarlo, se utiliza EvaluateBoard para determinar la calidad del estado.
 func defaultPolicy(b board.Board, simPlayer rune, m *MCTS, rootPlayer rune) float64 {
 	simBoard := board.CloneBoard(b)
 	currentSimPlayer := simPlayer
@@ -158,7 +162,7 @@ func defaultPolicy(b board.Board, simPlayer rune, m *MCTS, rootPlayer rune) floa
 	return 0.0
 }
 
-// backup actualiza las estadísticas (visitas y victorias) desde el nodo hasta la raíz.
+// backup actualiza las estadísticas del nodo y de sus ancestros con el resultado de la simulación.
 func backup(node *Node, result float64) {
 	for node != nil {
 		node.visits++
