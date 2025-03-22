@@ -186,24 +186,11 @@ func selectBestChild(node *Node, exploration float64) *Node {
 
 // --- Funciones auxiliares para implementar las reglas de Connect6 ---
 
-// isFirstMove determina si es la primera jugada del jugador.
-// Si el jugador aún no tiene fichas en el tablero, se considera su primer turno.
-func IsFirstMove(b board.Board, player rune) bool {
-	for i := 0; i < board.BoardSize; i++ {
-		for j := 0; j < board.BoardSize; j++ {
-			if b[i][j] != '\x00' {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 // generateLegalMoves genera los movimientos legales para el jugador en el estado b.
 // Si es la primera jugada, se generan movimientos para colocar UNA sola ficha,
 // utilizando como centinela la posición (-1,-1) en la segunda posición del movimiento.
 func generateLegalMoves(b board.Board, player rune) []board.Move {
-	if IsFirstMove(b, player) {
+	if board.IsBoardEmpty(b) {
 		var moves []board.Move
 		for i := 0; i < board.BoardSize; i++ {
 			for j := 0; j < board.BoardSize; j++ {
