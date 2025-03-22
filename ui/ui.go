@@ -3,19 +3,8 @@ package ui
 import (
 	"connect6/board"
 	"fmt"
+	"connect6/mcts"
 )
-
-// isFirstPlay cuenta las fichas de un jugador en el tablero.
-func isFirstPlay(b board.Board, player rune) bool {
-	for i := 0; i < board.BoardSize; i++ {
-		for j := 0; j < board.BoardSize; j++ {
-			if b[i][j] != '\x00' {
-				return false
-			}
-		}
-	}
-	return true
-}
 
 // PrintBoard muestra el tablero con formato legible en consola
 // Parámetros:
@@ -50,7 +39,7 @@ func PrintBoard(b board.Board) {
 // se solicita solo una posición; de lo contrario, se solicitan dos posiciones.
 func GetPlayerMove(b board.Board) board.Move {
 	var player rune = 'W' // Suponemos que el jugador humano es siempre blancas
-	firstPlay := isFirstPlay(b, player)
+	firstPlay := mcts.IsFirstMove(b, player)
 	if firstPlay {
 		// Primera jugada: se coloca solo una ficha.
 		var row, col int

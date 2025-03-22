@@ -201,7 +201,7 @@ func selectBestChild(node *Node, exploration float64) *Node {
 
 // isFirstMove determina si es la primera jugada del jugador.
 // Si el jugador aún no tiene fichas en el tablero, se considera su primer turno.
-func isFirstMove(b board.Board, player rune) bool {
+func IsFirstMove(b board.Board, player rune) bool {
 	for i := 0; i < board.BoardSize; i++ {
 		for j := 0; j < board.BoardSize; j++ {
 			if b[i][j] != '\x00' {
@@ -216,7 +216,7 @@ func isFirstMove(b board.Board, player rune) bool {
 // Si es la primera jugada, se generan movimientos para colocar UNA sola ficha,
 // utilizando como centinela la posición (-1,-1) en la segunda posición del movimiento.
 func generateLegalMoves(b board.Board, player rune) []board.Move {
-	if isFirstMove(b, player) {
+	if IsFirstMove(b, player) {
 		var moves []board.Move
 		for i := 0; i < board.BoardSize; i++ {
 			for j := 0; j < board.BoardSize; j++ {
