@@ -44,24 +44,25 @@ func NewNode(b board.Board, move board.Move, parent *Node, player rune) *Node {
 // Search inicia la búsqueda MCTS desde el estado actual (rootBoard).
 // currentPlayer es el jugador que debe mover en este estado.
 func (m *MCTS) Search(rootBoard board.Board, currentPlayer rune) board.Move {
-	// Calcula la fecha límite en base al TimeLimit (en segundos)
 	deadline := time.Now().Add(time.Duration(m.TimeLimit) * time.Second)
 	root := NewNode(rootBoard, board.Move{}, nil, currentPlayer)
 	root.untriedMoves = generateLegalMoves(root.board, currentPlayer)
 
+	// Uso de la función de bloqueo crítico para detectar amenazas inmediatas del oponente.
+	opponent := board.SwitchPlayer(currentPlayer)
+	if blockMove := board.FindCriticalBlock(root.board, opponent); blockMove != nil {
+		return *blockMove
+	}
+
+	// Realiza las simulaciones de MCTS.
 	for i := 0; i < m.Iterations; i++ {
-		// Se interrumpe la búsqueda si se supera el límite de tiempo
 		if time.Now().After(deadline) {
 			break
 		}
-		// Selección y expansión: se escoge un nodo hoja del árbol.
 		node := treePolicy(root, currentPlayer)
-		// Simulación (rollout) desde el nodo seleccionado.
 		result := defaultPolicy(node.board, board.SwitchPlayer(node.player), m, currentPlayer)
-		// Backpropagación: se actualizan las estadísticas a lo largo del camino.
 		backup(node, result)
 	}
-
 	bestChild := selectBestChild(root, 0)
 	return bestChild.move
 }
